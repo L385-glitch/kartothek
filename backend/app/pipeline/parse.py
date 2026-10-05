@@ -210,4 +210,23 @@ def load_parsed(doc_id: str) -> ParsedDocument | None:
     p = settings.data_dir / "parsed" / f"{doc_id}.json"
     if not p.exists():
         return None
-    return ParsedDocument(**json.loads(p.read_text(encoding="utf-8")))
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    # Reconstruct Slide/FigureCandidate dataclasses from their JSON dicts so
+    # consumers can use attribute access (s.text, s.number, s.figures...).
+    slides = []
+    for s in raw.get("slides", []):
+        figs = [
+            FigureCandidate(
+                page=f.get("page", 0), kind=f.get("kind", "raster"),
+                bbox=f.get("bbox", [0, 0, 0, 0]), width=f.get("width", 0),
+                height=f.get("height", 0), area_frac=f.get("area_frac", 0.0),
+            )
+            for f in s.get("figures", [])
+        ]
+        slides.append(Slide(number=s.get("number", 0), title=s.get("title", ""),
+                            text=s.get("text", ""), figures=figs))
+    return ParsedDocument(
+        doc_id=raw.get("doc_id", doc_id), filename=raw.get("filename", ""),
+        layout=raw.get("layout", "slide"), page_count=raw.get("page_count", 0),
+        slides=slides, sections=raw.get("sections", []), toc=raw.get("toc", []),
+    )
