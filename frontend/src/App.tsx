@@ -47,14 +47,14 @@ export default function App() {
     <div className="layout">
       <aside className="sidebar">
         <div className="logo">
-          Karto<span>thek</span>
+          Study<span>deck</span>
         </div>
         <button
           className={`navitem ${view.name === "hub" ? "active" : ""}`}
           onClick={() => go({ name: "hub" })}
         >
           <span>📚</span>
-          <span className="label">Lern-Hub</span>
+          <span className="label">Card-Decks</span>
         </button>
         <button
           className={`navitem ${view.name === "wizard" ? "active" : ""}`}

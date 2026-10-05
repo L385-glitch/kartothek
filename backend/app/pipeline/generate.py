@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from ..llm import LLMClient
 from .parse import ParsedDocument
 
-log = logging.getLogger("kartothek.generate")
+log = logging.getLogger("studydeck.generate")
 
 
 @dataclass

@@ -1,4 +1,4 @@
-// API client for the Kartothek backend.
+// API client for the Studydeck backend.
 
 export interface Course {
   id: string;

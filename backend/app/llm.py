@@ -15,7 +15,7 @@ from typing import Any
 
 from .config import settings
 
-log = logging.getLogger("kartothek.llm")
+log = logging.getLogger("studydeck.llm")
 
 
 class LLMError(Exception):

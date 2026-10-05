@@ -1,4 +1,4 @@
-# Kartothek — single-container image
+# Studydeck — single-container image
 # Stage 1: build the React frontend (Vite)
 FROM node:20-slim AS frontend
 WORKDIR /build
@@ -11,7 +11,7 @@ RUN npm run build
 FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    KARTOTHEK_DATA=/data \
+    STUDYDECK_DATA=/data \
     PORT=8000
 
 WORKDIR /app
@@ -23,12 +23,12 @@ COPY --from=frontend /build/dist ./static
 
 # Run as non-root at runtime; the entrypoint fixes /data ownership when the
 # host bind mount is root-owned (TrueNAS custom apps) and drops privileges.
-RUN useradd -m -u 1000 kartothek \
+RUN useradd -m -u 1000 studydeck \
     && apt-get update \
     && apt-get install -y --no-install-recommends gosu \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /data \
-    && chown -R kartothek:kartothek /data /app
+    && chown -R studydeck:studydeck /data /app
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 

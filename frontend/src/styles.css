@@ -235,3 +235,129 @@ h3 { font-size: 15px; margin: 0 0 8px; }
   font-size: 14px;
   white-space: pre-wrap;
 }
+
+/* ===================== Interactive cards (MC + cloze) ===================== */
+.flashcard .back { white-space: pre-wrap; }
+.good { color: var(--accent2); font-weight: 600; margin: 0 0 8px; }
+.bad { color: var(--danger); font-weight: 600; margin: 0 0 8px; }
+
+/* Multiple choice */
+.mc-options { display: flex; flex-direction: column; gap: 8px; }
+.mc-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1.45;
+  transition: border-color 0.15s, background 0.15s;
+}
+.mc-option:hover { border-color: var(--accent); }
+.mc-option.selected {
+  border-color: var(--accent);
+  background: rgba(79, 140, 255, 0.14);
+}
+.mc-option.static { cursor: default; }
+.mc-option.static:hover { border-color: var(--border); }
+.mc-option.correct {
+  border-color: var(--accent2);
+  background: rgba(56, 211, 159, 0.14);
+}
+.mc-option.wrong {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.14);
+}
+.mc-letter {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 13px;
+}
+.mc-option.correct .mc-letter { background: var(--accent2); border-color: var(--accent2); color: #08281d; }
+.mc-option.wrong .mc-letter { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+/* Cloze */
+.cloze-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 16px; /* 16px avoids iOS auto-zoom on focus */
+}
+.cloze-answer { color: var(--accent); margin: 0 4px; }
+
+/* Rating bar */
+.rating-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.rating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 4px;
+}
+.rating-label { font-size: 13px; font-weight: 600; }
+.rating-key { font-size: 11px; opacity: 0.55; }
+.rating-0 { border-color: rgba(239, 68, 68, 0.5); }
+.rating-1 { border-color: rgba(245, 165, 36, 0.5); }
+.rating-2 { border-color: rgba(79, 140, 255, 0.5); }
+.rating-3 { border-color: rgba(56, 211, 159, 0.5); }
+
+/* ===================== Mobile (iPhone / Safari) ===================== */
+@media (max-width: 760px) {
+  body {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .layout { flex-direction: column; }
+  .sidebar {
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 10px 14px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar .logo {
+    margin: 0 10px 0 0;
+    font-size: 17px;
+    white-space: nowrap;
+  }
+  .navitem {
+    width: auto;
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  .navitem .label { display: inline; }
+  .main { padding: 18px 16px; }
+  .flashcard { padding: 18px 16px; min-height: 140px; }
+  .flashcard .front { font-size: 16px; }
+  .rating-bar { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .rating { padding: 14px 6px; }
+  .rating-label { font-size: 14px; }
+  .mc-option { padding: 14px; min-height: 52px; }
+  .review-card .actions { margin-left: 0; width: 100%; }
+  .review-card .actions button { flex: 1; }
+}
+
+@media (max-width: 380px) {
+  .rating-bar { grid-template-columns: 1fr 1fr; }
+  .navitem { font-size: 13px; padding: 7px 8px; }
+}

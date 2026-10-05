@@ -16,6 +16,15 @@ def _env(name: str, default: str) -> str:
     return os.environ.get(name, default)
 
 
+def _env_compat(names: list[str], default: str) -> str:
+    """Read the first set env var from a list (for rename backward-compat)."""
+    for n in names:
+        v = os.environ.get(n)
+        if v:
+            return v
+    return default
+
+
 def _env_int(name: str, default: int) -> int:
     try:
         return int(os.environ.get(name, "") or default)
@@ -27,7 +36,11 @@ def _env_int(name: str, default: int) -> int:
 class Settings:
     # --- storage -------------------------------------------------------
     # Single writable volume. On TrueNAS this is the /data bind mount.
-    data_dir: Path = field(default_factory=lambda: Path(_env("KARTOTHEK_DATA", "/data")))
+    # STUDYDECK_DATA is the new name; KARTOTHEK_DATA is kept for existing
+    # deployments so they keep working without changes.
+    data_dir: Path = field(
+        default_factory=lambda: Path(_env_compat(["STUDYDECK_DATA", "KARTOTHEK_DATA"], "/data"))
+    )
 
     # --- LLM -----------------------------------------------------------
     # OpenAI-compatible base URL (no trailing /v1 needed; we append it).
@@ -61,7 +74,7 @@ class Settings:
 
     @property
     def db_path(self) -> Path:
-        return self.data_dir / "kartothek.db"
+        return self.data_dir / "studydeck.db"
 
     @property
     def exports_dir(self) -> Path:

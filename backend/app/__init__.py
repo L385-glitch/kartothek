@@ -1,1 +1,1 @@
-"""kartothek backend package."""
+"""studydeck backend package."""

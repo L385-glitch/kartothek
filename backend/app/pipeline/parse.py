@@ -21,7 +21,7 @@ import pymupdf
 
 from ..config import settings
 
-log = logging.getLogger("kartothek.parse")
+log = logging.getLogger("studydeck.parse")
 
 
 @dataclass

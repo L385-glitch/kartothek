@@ -20,6 +20,27 @@ class Base(DeclarativeBase):
     pass
 
 
+def _migrate_legacy_db() -> None:
+    """Rename the pre-rename database (kartothek.db) to studydeck.db.
+
+    Runs once at startup so existing deployments keep their data after the
+    project was renamed. Only renames when the new file does not already
+    exist, and moves the WAL/SHM sidecar files along with it.
+    """
+    data = settings.data_dir
+    legacy = data / "kartothek.db"
+    current = data / "studydeck.db"
+    if legacy.exists() and not current.exists():
+        for suffix in ("", "-wal", "-shm"):
+            src = data / f"kartothek.db{suffix}"
+            if src.exists():
+                try:
+                    src.rename(data / f"studydeck.db{suffix}")
+                except OSError:
+                    # Leave it; the app will just start a fresh DB.
+                    pass
+
+
 def _make_engine(db_path: Path):
     db_path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_engine(
@@ -39,6 +60,7 @@ def _make_engine(db_path: Path):
     return engine
 
 
+_migrate_legacy_db()
 engine = _make_engine(settings.db_path)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, future=True)
 

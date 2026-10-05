@@ -377,11 +377,11 @@ export default function Wizard({ onDone, onRefresh }: Props) {
           <p className="muted mt">{job.progress} %</p>
           <p className="muted">
             Der Job läuft im Hintergrund und übersteht Neustarts. Du kannst die
-            Seite schließen — im Lern-Hub siehst du das Ergebnis später.
+            Seite schließen — im Card-Decks-Bereich siehst du das Ergebnis später.
           </p>
           <div className="row mt">
             <button onClick={() => { onRefresh(); onDone(job.deck_id); }}>
-              Zum Lern-Hub
+              Zum Card-Decks
             </button>
           </div>
         </div>
@@ -391,7 +391,7 @@ export default function Wizard({ onDone, onRefresh }: Props) {
         <div className="card">
           <h2>✅ Fertig</h2>
           <p>
-            Dein Deck „{deckName}“ ist im Lern-Hub. Prüfe die Karten, bevor du
+            Dein Deck „{deckName}“ ist in den Card-Decks. Prüfe die Karten, bevor du
             lernst.
           </p>
           <div className="row mt">

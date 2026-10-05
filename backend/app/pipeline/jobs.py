@@ -31,7 +31,7 @@ from . import figures as figures_mod
 from . import generate as gen
 from . import parse as parse_mod
 
-log = logging.getLogger("kartothek.job")
+log = logging.getLogger("studydeck.job")
 
 ALL_STAGES = [
     JobStage.INGEST, JobStage.PARSE, JobStage.ANALYZE,

@@ -82,7 +82,7 @@ def build_apkg(
 
     model = {
         "id": model_id,
-        "name": "Kartothek",
+        "name": "Studydeck",
         "type": 0,
         "desc": "",
         "mod": now,

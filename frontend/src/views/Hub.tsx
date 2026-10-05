@@ -127,7 +127,7 @@ export default function Hub({ decks, courses, onReview, onStudy, onNew, onRefres
   return (
     <div className="stagger">
       <div className="row spread mb">
-        <h1>Lern-Hub</h1>
+        <h1>Card-Decks</h1>
         <button className="primary" onClick={onNew}>
           + Neue Karten erstellen
         </button>

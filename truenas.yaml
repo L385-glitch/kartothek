@@ -1,15 +1,15 @@
-# Kartothek — TrueNAS SCALE compose
-# Place at /mnt/tank/apps/kartothek/truenas.yaml (or any apps dir).
-# Image: ghcr.io/l385-glitch/kartothek:main (built by GitHub Actions on every push)
-name: kartothek
+# Studydeck — TrueNAS SCALE compose
+# Place at /mnt/tank/apps/studydeck/truenas.yaml (or any apps dir).
+# Image: ghcr.io/l385-glitch/studydeck:main (built by GitHub Actions on every push)
+name: studydeck
 
 services:
-  kartothek:
-    image: ghcr.io/l385-glitch/kartothek:main
-    container_name: kartothek
+  studydeck:
+    image: ghcr.io/l385-glitch/studydeck:main
+    container_name: studydeck
     restart: unless-stopped
     ports:
-      - "8090:8000"
+      - "3355:8000"
     environment:
       # Your llama.cpp endpoint on the TrueNAS box (host-gateway = the NAS itself)
       LLM_BASE_URL: http://host.docker.internal:9293
@@ -18,6 +18,6 @@ services:
       # Optional: cap cards per document (default 200)
       # MAX_CARDS_PER_DOC: "200"
     volumes:
-      - /mnt/tank/apps/kartothek/data:/data
+      - /mnt/tank/apps/studydeck/data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"

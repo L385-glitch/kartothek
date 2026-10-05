@@ -22,7 +22,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-log = logging.getLogger("kartothek")
+log = logging.getLogger("studydeck")
 
 # Where the built frontend lives (copied in by the Docker build).
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -34,12 +34,12 @@ async def lifespan(app: FastAPI):
     init_db()
     # Crash recovery: resume any jobs that were running when we last died.
     job_runner.resume_pending()
-    log.info("kartothek started (data=%s, llm=%s/%s)",
+    log.info("studydeck started (data=%s, llm=%s/%s)",
              settings.data_dir, settings.llm_base_url, settings.llm_model)
     yield
 
 
-app = FastAPI(title="Kartothek", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Studydeck", version="1.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,7 +63,7 @@ app.mount("/figures", StaticFiles(directory=str(settings.figures_dir)),
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "service": "kartothek", "version": app.version}
+    return {"ok": True, "service": "studydeck", "version": app.version}
 
 
 # Serve the frontend last so /api wins.

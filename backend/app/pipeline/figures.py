@@ -23,7 +23,7 @@ import pymupdf
 from ..config import settings
 from .parse import ParsedDocument
 
-log = logging.getLogger("kartothek.figures")
+log = logging.getLogger("studydeck.figures")
 
 
 def _slug(text: str) -> str:
