@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+
+# Phase-0 spike (throwaway validation outputs)
+spike/
+
+# Real course PDFs (FHNW lecture material — don't commit)
+docs/*.pdf
+
+# Data & artifacts
+backend/static/
+backend/data/
+*.db
+*.sqlite3
+*.apkg
+*.log
+
+# IDE
+.vscode/
+.idea/
+.DS_Store

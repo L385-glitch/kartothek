@@ -1,0 +1,23 @@
+# Kartothek — TrueNAS SCALE compose
+# Place at /mnt/tank/apps/kartothek/truenas.yaml (or any apps dir).
+# Image: ghcr.io/<you>/kartothek:latest (built by GitHub Actions)
+name: kartothek
+
+services:
+  kartothek:
+    image: ghcr.io/luca-reichert/kartothek:latest
+    container_name: kartothek
+    restart: unless-stopped
+    ports:
+      - "8090:8000"
+    environment:
+      # Your llama.cpp endpoint on the TrueNAS box (host-gateway = the NAS itself)
+      LLM_BASE_URL: http://host.docker.internal:9293
+      LLM_MODEL: Qwen3.8-27B-Q4
+      LLM_API_KEY: not-needed
+      # Optional: cap cards per document (default 200)
+      # MAX_CARDS_PER_DOC: "200"
+    volumes:
+      - /mnt/tank/apps/kartothek/data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
