@@ -1,11 +1,11 @@
 # Kartothek — TrueNAS SCALE compose
 # Place at /mnt/tank/apps/kartothek/truenas.yaml (or any apps dir).
-# Image: ghcr.io/<you>/kartothek:latest (built by GitHub Actions)
+# Image: ghcr.io/l385-glitch/kartothek:main (built by GitHub Actions on every push)
 name: kartothek
 
 services:
   kartothek:
-    image: ghcr.io/luca-reichert/kartothek:latest
+    image: ghcr.io/l385-glitch/kartothek:main
     container_name: kartothek
     restart: unless-stopped
     ports:

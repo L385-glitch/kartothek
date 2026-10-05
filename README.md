@@ -37,7 +37,7 @@ docker run -d -p 8090:8000 \
   kartothek
 ```
 Or use `truenas.yaml` with the GitHub-Actions-built image
-(`ghcr.io/<you>/kartothek`).
+(`ghcr.io/l385-glitch/kartothek:main`).
 
 ## Config (env vars)
 | Var | Default | Meaning |
