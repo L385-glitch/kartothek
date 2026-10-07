@@ -24,6 +24,13 @@ export default function Materials({
   const [drag, setDrag] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Course management state.
+  const [showCourseForm, setShowCourseForm] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [courseName, setCourseName] = useState("");
+  const [courseDesc, setCourseDesc] = useState("");
+  const [courseBusy, setCourseBusy] = useState(false);
+
   const load = useCallback(async () => {
     try {
       setError("");
@@ -39,7 +46,7 @@ export default function Materials({
     load();
   }, [load]);
 
-  const courseName = (id: string | null) =>
+  const courseNameOf = (id: string | null) =>
     courses.find((c) => c.id === id)?.name ?? "Unzugeordnet";
 
   const groups = useMemo(() => {
@@ -54,12 +61,87 @@ export default function Materials({
       ordered.push({ key: UNASSIGNED, label: "Unzugeordnet", items: map.get(UNASSIGNED)! });
     const courseKeys = [...map.keys()]
       .filter((k) => k !== UNASSIGNED)
-      .sort((a, b) => courseName(a).localeCompare(courseName(b)));
+      .sort((a, b) => courseNameOf(a).localeCompare(courseNameOf(b)));
     for (const k of courseKeys)
-      ordered.push({ key: k, label: courseName(k), items: map.get(k)! });
+      ordered.push({ key: k, label: courseNameOf(k), items: map.get(k)! });
     return ordered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [materials, courses]);
+
+  // ---------- course management ----------
+
+  const openNewCourse = () => {
+    setEditingCourse(null);
+    setCourseName("");
+    setCourseDesc("");
+    setShowCourseForm(true);
+  };
+
+  const openEditCourse = (c: Course) => {
+    setEditingCourse(c);
+    setCourseName(c.name);
+    setCourseDesc(c.description);
+    setShowCourseForm(true);
+  };
+
+  const closeCourseForm = () => {
+    setShowCourseForm(false);
+    setEditingCourse(null);
+    setCourseName("");
+    setCourseDesc("");
+  };
+
+  const saveCourse = async () => {
+    const name = courseName.trim();
+    if (!name) {
+      setError("Bitte einen Kursnamen eingeben.");
+      return;
+    }
+    setCourseBusy(true);
+    setError("");
+    try {
+      if (editingCourse) {
+        await api.updateCourse(editingCourse.id, {
+          name,
+          description: courseDesc,
+        });
+      } else {
+        await api.createCourse(name, courseDesc);
+      }
+      closeCourseForm();
+      onRefresh();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setCourseBusy(false);
+    }
+  };
+
+  const removeCourse = async (c: Course) => {
+    const noun =
+      c.material_count > 0
+        ? `${c.material_count} Material${c.material_count === 1 ? "" : "ien"}`
+        : "keine Materialien";
+    if (
+      !confirm(
+        `Kurs „${c.name}" wirklich löschen?\n` +
+          `Zugeordnete Decks und ${noun} werden nicht gelöscht, sondern als „Unzugeordnet" markiert.`
+      )
+    )
+      return;
+    setCourseBusy(true);
+    setError("");
+    try {
+      await api.deleteCourse(c.id);
+      onRefresh();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setCourseBusy(false);
+    }
+  };
+
+  // ---------- materials ----------
 
   const upload = async (f: File | null) => {
     if (!f) return;
@@ -161,6 +243,103 @@ export default function Materials({
         }}
       />
 
+      {/* ---------- Kursverwaltung ---------- */}
+      <div className="card">
+        <div className="row spread">
+          <h2 style={{ margin: 0 }}>📚 Kurse</h2>
+          {!showCourseForm && (
+            <button className="small primary" onClick={openNewCourse}>
+              + Neuer Kurs
+            </button>
+          )}
+        </div>
+
+        {showCourseForm && (
+          <div className="mt" style={{ display: "grid", gap: 8 }}>
+            <div className="row spread">
+              <h3 style={{ margin: 0 }}>
+                {editingCourse ? "Kurs bearbeiten" : "Neuer Kurs"}
+              </h3>
+              <button className="small" onClick={closeCourseForm}>
+                ✕ Abbrechen
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Kursname (z. B. Umweltchemie)"
+              value={courseName}
+              onChange={(e) => setCourseName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void saveCourse()}
+              autoFocus
+            />
+            <input
+              type="text"
+              placeholder="Beschreibung (optional)"
+              value={courseDesc}
+              onChange={(e) => setCourseDesc(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void saveCourse()}
+            />
+            <div>
+              <button
+                className="primary"
+                disabled={courseBusy}
+                onClick={() => void saveCourse()}
+              >
+                {courseBusy
+                  ? "Speichere…"
+                  : editingCourse
+                    ? "Speichern"
+                    : "Kurs anlegen"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {courses.length === 0 && !showCourseForm ? (
+          <p className="muted mt">
+            Noch keine Kurse angelegt. Lege oben deinen ersten Kurs an, um
+            Materialien zuzuordnen.
+          </p>
+        ) : (
+          <div className="mt">
+            {courses.map((c) => (
+              <div
+                className="topic-row"
+                key={c.id}
+                style={{ flexWrap: "wrap", gap: 8 }}
+              >
+                <span className="name" style={{ minWidth: 200 }}>
+                  📚 {c.name}
+                  {c.description && (
+                    <span className="muted"> · {c.description}</span>
+                  )}
+                </span>
+                <span className="pill">
+                  {c.material_count} Material · {c.deck_count} Decks
+                </span>
+                <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <button
+                    className="small"
+                    disabled={courseBusy}
+                    onClick={() => openEditCourse(c)}
+                  >
+                    ✎ Bearbeiten
+                  </button>
+                  <button
+                    className="small danger"
+                    disabled={courseBusy}
+                    onClick={() => void removeCourse(c)}
+                  >
+                    ✕
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ---------- material list ---------- */}
       {loading ? (
         <div className="card">
           <p className="muted">Materialien werden geladen…</p>
@@ -169,9 +348,7 @@ export default function Materials({
         <div className="card">
           <div style={{ fontSize: 30 }}>📄</div>
           <h2>Noch keine Materialien</h2>
-          <p className="muted">
-            Lade oben dein erstes Vorlesungs-PDF hoch.
-          </p>
+          <p className="muted">Lade oben dein erstes Vorlesungs-PDF hoch.</p>
         </div>
       ) : (
         groups.map((g) => (

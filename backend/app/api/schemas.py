@@ -19,6 +19,11 @@ class CourseCreate(BaseModel):
     description: str = ""
 
 
+class CourseUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
 class DeckCreate(BaseModel):
     course_id: str | None = None
     name: str

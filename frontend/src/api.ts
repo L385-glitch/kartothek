@@ -7,6 +7,7 @@ export interface Course {
   description: string;
   deck_count: number;
   card_count: number;
+  material_count: number;
 }
 
 export interface Deck {
@@ -182,9 +183,14 @@ export const api = {
   // courses
   listCourses: () => req<Course[]>("/api/courses"),
   createCourse: (name: string, description = "") =>
-    req<{ id: string }>("/api/courses", {
+    req<Course>("/api/courses", {
       method: "POST",
       body: JSON.stringify({ name, description }),
+    }),
+  updateCourse: (id: string, patch: { name?: string; description?: string }) =>
+    req<Course>(`/api/courses/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
     }),
   deleteCourse: (id: string) =>
     req<void>(`/api/courses/${id}`, { method: "DELETE" }),
