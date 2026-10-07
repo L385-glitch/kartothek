@@ -22,6 +22,7 @@ from ..models import (
 )
 from ..pipeline import exam as exam_gen
 from ..pipeline import exam_jobs as exam_runner
+from .jobs import active_create_job
 from .schemas import (
     AttemptResubmit, AttemptSubmit, ExamGenerateRequest, ExamMove, ExamRename,
     attempt_out, exam_detail_out, exam_job_out, exam_out,
@@ -48,6 +49,9 @@ def _default_name(course: Course | None, kind: ExamKind) -> str:
 @router.post("/exams/generate", status_code=202)
 def generate_exam(body: ExamGenerateRequest, db: Session = Depends(get_session_dep)):
     """Create an exam (DRAFT) + a background generation job, and start it."""
+    # Only one create job at a time (cards or exam) — the UI relies on this.
+    if active_create_job(db) is not None:
+        raise HTTPException(409, "ein Erstellungs-Job läuft bereits")
     if not body.doc_ids:
         raise HTTPException(400, "at least one doc_id required")
     kind = _kind(body.kind)

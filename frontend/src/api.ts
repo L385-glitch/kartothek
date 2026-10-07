@@ -66,6 +66,13 @@ export interface Job {
   updated_at: string;
 }
 
+// The single in-flight create job, as returned by GET /api/jobs/active.
+// `type` tells us which branch created it so we can poll the right endpoint.
+export interface ActiveJob {
+  type: "cards" | "exam";
+  job: Job | ExamJob;
+}
+
 export interface DocumentInfo {
   id: string;
   filename: string;
@@ -228,6 +235,7 @@ export const api = {
   }) => req<Job>("/api/jobs", { method: "POST", body: JSON.stringify(body) }),
   getJob: (id: string) => req<Job>(`/api/jobs/${id}`),
   listJobs: () => req<Job[]>("/api/jobs"),
+  getActiveJob: () => req<ActiveJob | null>("/api/jobs/active"),
   retryJob: (id: string) =>
     req<Job>(`/api/jobs/${id}/retry`, { method: "POST" }),
 

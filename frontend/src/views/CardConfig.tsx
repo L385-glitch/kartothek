@@ -6,6 +6,7 @@ interface Props {
   docPages?: number;
   docName?: string;
   defaultName?: string;
+  disabled?: boolean;
   onConfig: (cfg: CardConfig) => void;
 }
 
@@ -23,6 +24,7 @@ export default function CardConfig({
   docPages,
   docName,
   defaultName,
+  disabled,
   onConfig,
 }: Props) {
   const [deckName, setDeckName] = useState(defaultName ?? "");
@@ -160,6 +162,7 @@ export default function CardConfig({
       <div className="row">
         <button
           className="primary"
+          disabled={disabled}
           onClick={() =>
             onConfig({
               deckName: deckName.trim(),

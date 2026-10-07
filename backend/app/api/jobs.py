@@ -22,13 +22,43 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..database import SessionLocal, get_session_dep
 from ..llm import LLMClient, LLMError
-from ..models import Deck, DeckStatus, Document, Job, JobStage, JobStatus
+from ..models import Deck, DeckStatus, Document, ExamJob, ExamStatus, Job, JobStage, JobStatus
 from ..pipeline import generate as gen
 from ..pipeline import jobs as job_runner
 from ..pipeline import parse as parse_mod
-from .schemas import AnalyzeRequest, GenerateRequest, job_out
+from .schemas import AnalyzeRequest, GenerateRequest, exam_job_out, job_out
 
 router = APIRouter(tags=["jobs"])
+
+
+def active_create_job(db: Session) -> dict | None:
+    """Return the single in-flight create job (cards or exam), if any.
+
+    A "create job" is a generation job that has not finished: a card Job in
+    PENDING/RUNNING, or an exam *generate* job in DRAFT (not yet READY).
+    Grading jobs are intentionally excluded — they belong to an exam attempt,
+    not to the "Neues erstellen" flow, and must not block new creations.
+    """
+    card = db.scalars(select(Job).where(Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]))).first()
+    if card is not None:
+        return {"type": "cards", "job": job_out(card)}
+    exam = db.scalars(select(ExamJob).where(
+        ExamJob.kind == "generate",
+        ExamJob.status == ExamStatus.DRAFT,
+    )).first()
+    if exam is not None:
+        return {"type": "exam", "job": exam_job_out(exam)}
+    return None
+
+
+@router.get("/jobs/active")
+def get_active_job(db: Session = Depends(get_session_dep)):
+    """The currently running create job (cards or exam), or null.
+
+    The frontend calls this on mount so a job's progress survives tab
+    switches and full page reloads — the backend is the source of truth.
+    """
+    return active_create_job(db)
 
 
 @router.post("/documents", status_code=201)
@@ -110,6 +140,9 @@ def analyze_document(doc_id: str, db: Session = Depends(get_session_dep)):
 @router.post("/jobs", status_code=202)
 def start_generation(body: GenerateRequest, db: Session = Depends(get_session_dep)):
     """Create a deck + generation job and start it in the background."""
+    # Only one create job at a time (cards or exam) — the UI relies on this.
+    if active_create_job(db) is not None:
+        raise HTTPException(409, "ein Erstellungs-Job läuft bereits")
     doc = db.get(Document, body.doc_id)
     if not doc:
         raise HTTPException(404, "doc not found")

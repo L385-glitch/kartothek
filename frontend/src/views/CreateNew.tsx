@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
+  ActiveJob,
   Analysis,
   Course,
   ExamJob,
@@ -62,6 +63,14 @@ export default function CreateNew({
   // job
   const [job, setJob] = useState<Job | ExamJob | null>(null);
   const [doneKind, setDoneKind] = useState<"deck" | "exam" | null>(null);
+  // True while a create job (cards or exam) is in flight. Kept in a ref too,
+  // so effects can check it synchronously without a stale closure.
+  const [inFlight, setInFlightState] = useState(false);
+  const inFlightRef = useRef(false);
+  const setInFlight = (v: boolean) => {
+    inFlightRef.current = v;
+    setInFlightState(v);
+  };
   const pollRef = useRef<number | null>(null);
 
   const load = useCallback(async () => {
@@ -79,18 +88,81 @@ export default function CreateNew({
     }
   }, []);
 
+  // Stop polling on unmount (tab switch away / view change).
   useEffect(() => {
-    load();
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
-  }, [load]);
+  }, []);
+
+  const startPolling = useCallback(
+    (jobId: string, isExam: boolean) => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+      pollRef.current = window.setInterval(async () => {
+        try {
+          const cur = isExam
+            ? await api.getExamJob(jobId)
+            : await api.getJob(jobId);
+          setJob(cur);
+          if (
+            cur.status === "done" ||
+            cur.status === "ready" ||
+            cur.status === "failed"
+          ) {
+            if (pollRef.current) window.clearInterval(pollRef.current);
+            const failed = cur.status === "failed";
+            setInFlight(false);
+            if (failed) {
+              setError((cur as { error: string }).error || "Job fehlgeschlagen");
+              setStep("error");
+            } else {
+              onRefresh();
+              setDoneKind(isExam ? "exam" : "deck");
+              setStep("done");
+            }
+          }
+        } catch {
+          /* transient */
+        }
+      }, 3000);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onRefresh]
+  );
+
+  // Load materials AND restore any in-flight create job. The backend is the
+  // source of truth, so the job's progress survives tab switches and full
+  // page reloads — we just re-attach to it here on mount.
+  useEffect(() => {
+    load();
+    (async () => {
+      try {
+        const active: ActiveJob | null = await api.getActiveJob();
+        if (active && !inFlightRef.current) {
+          const isExam = active.type === "exam";
+          setJob(active.job);
+          setInFlight(true);
+          setStep("running");
+          startPolling(active.job.id, isExam);
+        }
+      } catch {
+        /* backend not up yet */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, startPolling]);
 
   // If we arrived here from "Karten" on a specific material, jump straight
-  // into the card flow for that doc.
+  // into the card flow for that doc — but only if no job is already running
+  // (that job takes over the screen instead).
   const initialStarted = useRef(false);
   useEffect(() => {
-    if (initialCardDocId && materials.length > 0 && !initialStarted.current) {
+    if (
+      initialCardDocId &&
+      materials.length > 0 &&
+      !initialStarted.current &&
+      !inFlightRef.current
+    ) {
       const m = materials.find((x) => x.id === initialCardDocId);
       if (m) {
         initialStarted.current = true;
@@ -105,31 +177,6 @@ export default function CreateNew({
 
   const toggle = (list: string[], v: string, set: (x: string[]) => void) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-
-  const startPolling = (jobId: string, isExam: boolean) => {
-    pollRef.current = window.setInterval(async () => {
-      try {
-        const cur = isExam
-          ? await api.getExamJob(jobId)
-          : await api.getJob(jobId);
-        setJob(cur);
-        if (cur.status === "done" || cur.status === "ready" || cur.status === "failed") {
-          if (pollRef.current) window.clearInterval(pollRef.current);
-          const failed = cur.status === "failed";
-          if (failed) {
-            setError((cur as { error: string }).error || "Job fehlgeschlagen");
-            setStep("error");
-          } else {
-            onRefresh();
-            setDoneKind(isExam ? "exam" : "deck");
-            setStep("done");
-          }
-        }
-      } catch {
-        /* transient */
-      }
-    }, 3000);
-  };
 
   // ---- Cards flow -------------------------------------------------------
   const pickCardDoc = async (m: Material) => {
@@ -149,7 +196,7 @@ export default function CreateNew({
   };
 
   const startCards = async (cfg: CardCfg) => {
-    if (!cardDoc) return;
+    if (!cardDoc || inFlightRef.current) return;
     setBusy(true);
     setError("");
     try {
@@ -167,6 +214,7 @@ export default function CreateNew({
         },
       });
       setJob(j);
+      setInFlight(true);
       setStep("running");
       startPolling(j.id, false);
     } catch (e) {
@@ -187,6 +235,7 @@ export default function CreateNew({
       setError("Wähle mindestens einen Aufgabentyp.");
       return;
     }
+    if (inFlightRef.current) return;
     setBusy(true);
     setError("");
     try {
@@ -201,6 +250,7 @@ export default function CreateNew({
         focus: focus.trim() || undefined,
       });
       setJob(res.job);
+      setInFlight(true);
       setStep("running");
       startPolling(res.job.id, true);
     } catch (e) {
@@ -218,6 +268,7 @@ export default function CreateNew({
     setJob(null);
     setDoneKind(null);
     setError("");
+    setInFlight(false);
     if (pollRef.current) window.clearInterval(pollRef.current);
   };
 
@@ -244,6 +295,18 @@ export default function CreateNew({
 
       {step === "type" && (
         <>
+          {inFlight && (
+            <div className="card mb" style={{ borderLeft: "3px solid #6aa7ff" }}>
+              <h3 style={{ marginTop: 0 }}>
+                ⏳ Ein Job läuft gerade
+              </h3>
+              <p className="muted" style={{ marginBottom: 0 }}>
+                Es ist bereits ein Erstellungs-Job aktiv. Warte, bis er fertig
+                ist, bevor du einen neuen startest — nur einer kann gleichzeitig
+                laufen.
+              </p>
+            </div>
+          )}
           {materials.length === 0 ? (
             <div className="card">
               <div style={{ fontSize: 30 }}>📄</div>
@@ -254,34 +317,34 @@ export default function CreateNew({
               </p>
             </div>
           ) : (
-            <>
-              <div className="grid cols-2">
-                <button
-                  className="card"
-                  style={{ textAlign: "left", cursor: "pointer" }}
-                  onClick={() => setStep("cards")}
-                >
-                  <div style={{ fontSize: 28 }}>🃏</div>
-                  <h3 style={{ marginTop: 8 }}>Karten</h3>
-                  <p className="muted">
-                    Aus einem Material ein Karteideck erzeugen (Frage/Antwort,
-                    Lückentext, MC).
-                  </p>
-                </button>
-                <button
-                  className="card"
-                  style={{ textAlign: "left", cursor: "pointer" }}
-                  onClick={() => setStep("exam")}
-                >
-                  <div style={{ fontSize: 28 }}>📝</div>
-                  <h3 style={{ marginTop: 8 }}>Prüfung / Übung</h3>
-                  <p className="muted">
-                    Aus einem oder mehreren Materialien eine Prüfung oder Übung
-                    generieren.
-                  </p>
-                </button>
-              </div>
-            </>
+            <div className="grid cols-2">
+              <button
+                className="card"
+                style={{ textAlign: "left", cursor: "pointer" }}
+                disabled={inFlight}
+                onClick={() => setStep("cards")}
+              >
+                <div style={{ fontSize: 28 }}>🃏</div>
+                <h3 style={{ marginTop: 8 }}>Karten</h3>
+                <p className="muted">
+                  Aus einem Material ein Karteideck erzeugen (Frage/Antwort,
+                  Lückentext, MC).
+                </p>
+              </button>
+              <button
+                className="card"
+                style={{ textAlign: "left", cursor: "pointer" }}
+                disabled={inFlight}
+                onClick={() => setStep("exam")}
+              >
+                <div style={{ fontSize: 28 }}>📝</div>
+                <h3 style={{ marginTop: 8 }}>Prüfung / Übung</h3>
+                <p className="muted">
+                  Aus einem oder mehreren Materialien eine Prüfung oder Übung
+                  generieren.
+                </p>
+              </button>
+            </div>
           )}
         </>
       )}
@@ -321,6 +384,7 @@ export default function CreateNew({
               docPages={cardDoc.page_count}
               docName={cardDoc.filename}
               defaultName={cardDoc.filename.replace(/\.pdf$/i, "")}
+              disabled={inFlight}
               onConfig={startCards}
             />
           )}
@@ -473,7 +537,7 @@ export default function CreateNew({
           <div className="row">
             <button
               className="primary"
-              disabled={busy || selectedIds.length === 0}
+              disabled={busy || inFlight || selectedIds.length === 0}
               onClick={startExam}
             >
               {busy
@@ -501,9 +565,10 @@ export default function CreateNew({
             <div style={{ width: `${job.progress}%` }} />
           </div>
           <p className="muted mt">{job.progress} %</p>
-          <p className="muted">
-            Der Job läuft im Hintergrund und übersteht Neustarts. Du kannst die
-            Seite schließen — unter „Lernen" siehst du das Ergebnis.
+          <p className="muted" style={{ marginBottom: 0 }}>
+            Der Job läuft im Hintergrund und übersteht Neustarts. Du kannst
+            zwischen den Tabs wechseln oder die Seite schließen — der Fortschritt
+            bleibt erhalten und du siehst ihn hier wieder, sobald du zurückkommst.
           </p>
         </div>
       )}
