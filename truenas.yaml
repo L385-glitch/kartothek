@@ -12,7 +12,7 @@ services:
       - "3355:8000"
     environment:
       # Your llama.cpp endpoint on the TrueNAS box (host-gateway = the NAS itself)
-      LLM_BASE_URL: http://host.docker.internal:9293
+      LLM_BASE_URL: http://100.99.134.99:9293
       LLM_MODEL: Qwen3.8-27B-Q4
       LLM_API_KEY: not-needed
       # Optional: cap cards per document (default 200)
