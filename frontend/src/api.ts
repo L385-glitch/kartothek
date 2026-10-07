@@ -73,6 +73,89 @@ export interface DocumentInfo {
   duplicate: boolean;
 }
 
+// ---------- materials (Neue Karten library) ----------
+
+export interface Material {
+  id: string;
+  filename: string;
+  sha256: string;
+  page_count: number;
+  layout: string;
+  status: string;
+  course_id: string | null;
+  analysis: Analysis;
+  created_at: string;
+}
+
+// ---------- exams / exercises ----------
+
+export interface ExamQuestion {
+  id: string;
+  type: "mc" | "short" | "long";
+  text: string;
+  points: number;
+  options: string[];
+  correct_index: number;
+  answer_key: string;
+  explanation: string;
+  source_pages: number[];
+}
+
+export interface Exam {
+  id: string;
+  course_id: string | null;
+  name: string;
+  kind: "exam" | "exercise";
+  status: "draft" | "ready" | "failed";
+  source_doc_ids: string[];
+  total_points: number;
+  question_count: number;
+  config: Record<string, unknown>;
+  error: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExamDetail extends Exam {
+  content: ExamQuestion[];
+}
+
+export interface GradingEntry {
+  id: string;
+  correct: boolean;
+  points: number;
+  max_points: number;
+  feedback: string;
+}
+
+export interface ExamAttempt {
+  id: string;
+  exam_id: string;
+  answers: Record<string, string>;
+  grading: Record<string, GradingEntry>;
+  score: number;
+  max_score: number;
+  status: "pending" | "graded" | "failed";
+  resubmit_note: string;
+  error: string;
+  created_at: string;
+  graded_at: string | null;
+}
+
+export interface ExamJob {
+  id: string;
+  exam_id: string | null;
+  attempt_id: string | null;
+  kind: "generate" | "grade";
+  status: "draft" | "ready" | "failed";
+  progress: number;
+  source_doc_ids: string[];
+  config: Record<string, unknown>;
+  error: string;
+  created_at: string;
+  updated_at: string;
+}
+
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
@@ -132,6 +215,7 @@ export const api = {
       `/api/documents/${docId}/analyze`,
       { method: "POST", body: JSON.stringify({ doc_id: docId }) }
     ),
+  getDocument: (docId: string) => req<DocumentInfo>(`/api/documents/${docId}`),
   startJob: (body: {
     doc_id: string;
     config: Record<string, unknown>;
@@ -214,6 +298,79 @@ export const api = {
     if (!res.ok) throw new Error(`import failed: ${res.status}`);
     return res.json();
   },
+
+  // ---------- materials (Neue Karten library) ----------
+  listMaterials: (courseId?: string) =>
+    req<Material[]>(`/api/materials${courseId ? `?course_id=${courseId}` : ""}`),
+  assignMaterial: (docId: string, courseId: string | null) =>
+    req<Material>(`/api/materials/${docId}/assign`, {
+      method: "POST",
+      body: JSON.stringify({ course_id: courseId }),
+    }),
+  deleteMaterial: (docId: string) =>
+    req<void>(`/api/materials/${docId}`, { method: "DELETE" }),
+
+  // ---------- exams / exercises ----------
+  generateExam: (body: {
+    course_id?: string | null;
+    name?: string;
+    kind: "exam" | "exercise";
+    doc_ids: string[];
+    question_count: number;
+    question_types: string[];
+    difficulties: string[];
+    focus?: string;
+  }) =>
+    req<{ exam: Exam; job: ExamJob }>("/api/exams/generate", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listExams: (courseId?: string, kind?: string) => {
+    const p = new URLSearchParams();
+    if (courseId) p.set("course_id", courseId);
+    if (kind) p.set("kind", kind);
+    const q = p.toString();
+    return req<Exam[]>(`/api/exams${q ? `?${q}` : ""}`);
+  },
+  getExam: (id: string) => req<ExamDetail>(`/api/exams/${id}`),
+  renameExam: (id: string, name: string) =>
+    req<Exam>(`/api/exams/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    }),
+  moveExam: (id: string, courseId: string | null) =>
+    req<Exam>(`/api/exams/${id}/move`, {
+      method: "POST",
+      body: JSON.stringify({ course_id: courseId }),
+    }),
+  deleteExam: (id: string) =>
+    req<void>(`/api/exams/${id}`, { method: "DELETE" }),
+  getExamJob: (id: string) => req<ExamJob>(`/api/exam-jobs/${id}`),
+  retryExamJob: (id: string) =>
+    req<ExamJob>(`/api/exam-jobs/${id}/retry`, { method: "POST" }),
+  submitAttempt: (examId: string, answers: Record<string, string>) =>
+    req<{ attempt: ExamAttempt; job: ExamJob }>(
+      `/api/exams/${examId}/attempts`,
+      { method: "POST", body: JSON.stringify({ answers }) }
+    ),
+  listAttempts: (examId: string) =>
+    req<ExamAttempt[]>(`/api/exams/${examId}/attempts`),
+  getAttempt: (examId: string, attemptId: string) =>
+    req<ExamAttempt>(`/api/exams/${examId}/attempts/${attemptId}`),
+  resubmitAttempt: (
+    examId: string,
+    attemptId: string,
+    answers: Record<string, string> | null,
+    note: string
+  ) =>
+    req<{ attempt: ExamAttempt; job: ExamJob }>(
+      `/api/exams/${examId}/attempts/${attemptId}/resubmit`,
+      { method: "POST", body: JSON.stringify({ answers, note }) }
+    ),
+  deleteAttempt: (examId: string, attemptId: string) =>
+    req<void>(`/api/exams/${examId}/attempts/${attemptId}`, {
+      method: "DELETE",
+    }),
 };
 
 export function figureUrl(imagePath: string | null): string | null {

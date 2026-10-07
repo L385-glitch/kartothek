@@ -69,6 +69,17 @@ async def upload_document(file: UploadFile = File(...)):
                 "layout": layout, "duplicate": False}
 
 
+@router.get("/documents/{doc_id}")
+def get_document(doc_id: str, db: Session = Depends(get_session_dep)):
+    """Read a single stored document (for the reuse flow)."""
+    doc = db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(404, "not found")
+    return {"id": doc.id, "filename": doc.filename,
+            "page_count": doc.page_count, "layout": doc.layout,
+            "duplicate": False}
+
+
 @router.post("/documents/{doc_id}/analyze")
 def analyze_document(doc_id: str, db: Session = Depends(get_session_dep)):
     """Run (or return cached) LLM analysis: topics + suggested card count."""

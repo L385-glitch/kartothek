@@ -69,6 +69,24 @@ class JobStage(str, enum.Enum):
     FINISHED = "finished"
 
 
+class ExamKind(str, enum.Enum):
+    EXAM = "exam"            # mock exam (Prüfung)
+    EXERCISE = "exercise"    # practice set (Übung)
+
+
+class ExamStatus(str, enum.Enum):
+    DRAFT = "draft"
+    READY = "ready"
+    FAILED = "failed"
+
+
+# Question types used inside an exam's content JSON.
+class QuestionType(str, enum.Enum):
+    MC = "mc"          # multiple choice (deterministic grading)
+    SHORT = "short"    # short answer (LLM-graded)
+    LONG = "long"      # long / essay answer (LLM-graded)
+
+
 class Course(Base):
     __tablename__ = "courses"
 
@@ -94,7 +112,13 @@ class Document(Base):
     status: Mapped[str] = mapped_column(String(16), default="stored")
     # Cached analysis JSON (topics, suggested count) — set by the analyze step.
     analysis: Mapped[str] = mapped_column(Text, default="{}")
+    # Folder the material lives in (the "Neue Karten" library). NULL = unassigned.
+    course_id: Mapped[str | None] = mapped_column(
+        ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    course: Mapped["Course | None"] = relationship()
 
 
 class Deck(Base):
@@ -178,6 +202,95 @@ class Job(Base):
     config: Mapped[str] = mapped_column(Text, default="{}")
     # Analysis result (JSON): topics, suggested count, difficulty mix
     analysis: Mapped[str] = mapped_column(Text, default="{}")
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class Exam(Base):
+    """A generated mock exam (Prüfung) or practice set (Übung).
+
+    content is a JSON list of questions:
+      {"id": "q1", "type": "mc|short|long", "text": "...", "points": 2,
+       "options": ["A) ...", "B) ..."] (mc only),
+       "correct_index": 1 (mc only), "answer_key": "..." (short/long only),
+       "explanation": "...", "source_pages": [21, 22]}
+    """
+    __tablename__ = "exams"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uid)
+    course_id: Mapped[str | None] = mapped_column(
+        ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255))
+    kind: Mapped[ExamKind] = mapped_column(Enum(ExamKind), default=ExamKind.EXAM, index=True)
+    status: Mapped[ExamStatus] = mapped_column(Enum(ExamStatus), default=ExamStatus.DRAFT, index=True)
+    # Source materials this exam was generated from (comma-sep doc ids).
+    source_doc_ids: Mapped[str] = mapped_column(Text, default="")
+    # JSON list of questions (see docstring).
+    content: Mapped[str] = mapped_column(Text, default="[]")
+    total_points: Mapped[int] = mapped_column(Integer, default=0)
+    # Generation config snapshot (JSON): kind, count, types, difficulty, focus.
+    config: Mapped[str] = mapped_column(Text, default="{}")
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    course: Mapped["Course | None"] = relationship()
+    attempts: Mapped[list["ExamAttempt"]] = relationship(
+        back_populates="exam", cascade="all, delete-orphan"
+    )
+
+
+class ExamAttempt(Base):
+    """One sitting of an exam: the user's answers + the grading result.
+
+    answers is a JSON list keyed by question id:
+      {"q1": "B", "q2": "free text answer"}
+    grading is a JSON list aligned to the questions:
+      {"q1": {"correct": true, "points": 2, "max_points": 2, "feedback": "..."}, ...}
+    """
+    __tablename__ = "exam_attempts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uid)
+    exam_id: Mapped[str] = mapped_column(ForeignKey("exams.id", ondelete="CASCADE"), index=True)
+    # The user's answers (JSON dict question_id -> answer).
+    answers: Mapped[str] = mapped_column(Text, default="{}")
+    # Grading result (JSON dict question_id -> {correct, points, max_points, feedback}).
+    grading: Mapped[str] = mapped_column(Text, default="{}")
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    max_score: Mapped[int] = mapped_column(Integer, default=0)
+    # "pending" (submitted, not graded) | "graded" | "failed".
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    # Free-text the user can re-submit for re-grading (the "re-upload" loop).
+    resubmit_note: Mapped[str] = mapped_column(Text, default="")
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    graded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    exam: Mapped["Exam"] = relationship(back_populates="attempts")
+
+
+class ExamJob(Base):
+    """Background generation/grading job for exams (mirrors Job for cards)."""
+    __tablename__ = "exam_jobs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uid)
+    # What this job is for: an exam id (generation) or an attempt id (grading).
+    exam_id: Mapped[str | None] = mapped_column(
+        ForeignKey("exams.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    attempt_id: Mapped[str | None] = mapped_column(
+        ForeignKey("exam_attempts.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    # "generate" (build exam content) | "grade" (grade an attempt).
+    kind: Mapped[str] = mapped_column(String(16), default="generate")
+    status: Mapped[ExamStatus] = mapped_column(Enum(ExamStatus), default=ExamStatus.DRAFT, index=True)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    # Source doc ids for a generation job (comma-sep).
+    source_doc_ids: Mapped[str] = mapped_column(Text, default="")
+    # Config snapshot (JSON).
+    config: Mapped[str] = mapped_column(Text, default="{}")
     error: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

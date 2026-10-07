@@ -13,9 +13,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .api import cards, courses, decks, io, jobs, review
+from .api import cards, courses, decks, exams, io, jobs, materials, review
 from .config import settings
 from .database import init_db
+from .pipeline import exam_jobs as exam_runner
 from .pipeline import jobs as job_runner
 
 logging.basicConfig(
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     init_db()
     # Crash recovery: resume any jobs that were running when we last died.
     job_runner.resume_pending()
+    exam_runner.resume_pending()
     log.info("studydeck started (data=%s, llm=%s/%s)",
              settings.data_dir, settings.llm_base_url, settings.llm_model)
     yield
@@ -51,6 +53,8 @@ app.add_middleware(
 app.include_router(courses.router, prefix="/api")
 app.include_router(decks.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
+app.include_router(materials.router, prefix="/api")
+app.include_router(exams.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(review.router, prefix="/api")
 app.include_router(io.router, prefix="/api")

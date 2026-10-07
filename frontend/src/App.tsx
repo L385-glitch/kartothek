@@ -4,10 +4,18 @@ import Hub from "./views/Hub";
 import Wizard from "./views/Wizard";
 import Review from "./views/Review";
 import Study from "./views/Study";
+import NewCards from "./views/NewCards";
+import Exams from "./views/Exams";
+import ExamWizard from "./views/ExamWizard";
+import TakeExam from "./views/TakeExam";
 
 type View =
   | { name: "hub" }
-  | { name: "wizard" }
+  | { name: "newcards" }
+  | { name: "wizard"; docId?: string | null }
+  | { name: "exams" }
+  | { name: "examwizard" }
+  | { name: "takeexam"; examId: string }
   | { name: "review"; deckId: string }
   | { name: "study" };
 
@@ -43,6 +51,9 @@ export default function App() {
     refresh();
   };
 
+  const navActive = (names: string[]) =>
+    names.includes(view.name) ? "active" : "";
+
   return (
     <div className="layout">
       <aside className="sidebar">
@@ -50,21 +61,28 @@ export default function App() {
           Study<span>deck</span>
         </div>
         <button
-          className={`navitem ${view.name === "hub" ? "active" : ""}`}
+          className={`navitem ${navActive(["hub"])}`}
           onClick={() => go({ name: "hub" })}
         >
           <span>📚</span>
           <span className="label">Card-Decks</span>
         </button>
         <button
-          className={`navitem ${view.name === "wizard" ? "active" : ""}`}
-          onClick={() => go({ name: "wizard" })}
+          className={`navitem ${navActive(["newcards", "wizard"])}`}
+          onClick={() => go({ name: "newcards" })}
         >
           <span>✨</span>
           <span className="label">Neue Karten</span>
         </button>
         <button
-          className={`navitem ${view.name === "study" ? "active" : ""}`}
+          className={`navitem ${navActive(["exams", "examwizard", "takeexam"])}`}
+          onClick={() => go({ name: "exams" })}
+        >
+          <span>📝</span>
+          <span className="label">Prüfungen</span>
+        </button>
+        <button
+          className={`navitem ${navActive(["study"])}`}
           onClick={() => go({ name: "study" })}
         >
           <span>🎯</span>
@@ -79,12 +97,45 @@ export default function App() {
             courses={courses}
             onReview={(deckId) => go({ name: "review", deckId })}
             onStudy={() => go({ name: "study" })}
-            onNew={() => go({ name: "wizard" })}
+            onNew={() => go({ name: "newcards" })}
             onRefresh={refresh}
           />
         )}
+        {view.name === "newcards" && (
+          <NewCards
+            courses={courses}
+            onNewCards={() => go({ name: "wizard", docId: null })}
+            onReuse={(docId) => go({ name: "wizard", docId })}
+            onNewExam={() => go({ name: "examwizard" })}
+          />
+        )}
         {view.name === "wizard" && (
-          <Wizard onDone={(deckId) => go({ name: "review", deckId })} onRefresh={refresh} />
+          <Wizard
+            key={view.docId ?? "new"}
+            initialDocId={view.docId ?? null}
+            onDone={(deckId) => go({ name: "review", deckId })}
+            onRefresh={refresh}
+          />
+        )}
+        {view.name === "exams" && (
+          <Exams
+            courses={courses}
+            onTake={(examId) => go({ name: "takeexam", examId })}
+            onNewExam={() => go({ name: "examwizard" })}
+          />
+        )}
+        {view.name === "examwizard" && (
+          <ExamWizard
+            courses={courses}
+            onDone={(examId) => go({ name: "takeexam", examId })}
+            onRefresh={refresh}
+          />
+        )}
+        {view.name === "takeexam" && (
+          <TakeExam
+            examId={view.examId}
+            onBack={() => go({ name: "exams" })}
+          />
         )}
         {view.name === "review" && (
           <Review deckId={view.deckId} onDone={() => go({ name: "hub" })} onRefresh={refresh} />

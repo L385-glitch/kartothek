@@ -5,12 +5,30 @@ OpenAI-compatible LLM (your local llama.cpp) turn it into German flashcards
 with real figure crops, review them with FSRS spaced repetition, and export
 to Anki (.apkg) or CSV.
 
+Beyond cards: your imported materials stay in a **library** (grouped by
+course) so you can reuse them, and you can generate **exercises & mock exams**
+from them — then submit your answers and get them **corrected & graded** by the
+LLM, with the option to re-upload edited answers for a re-grade.
+
 Single container, one port. Built for a TrueNAS SCALE homelab.
+
+## Features
+- **Card-Decks** — generate, review (FSRS), study, export to Anki/CSV/JSON.
+- **Neue Karten (materials library)** — every imported PDF is kept, grouped by
+  course (or "Unzugeordnet"). Reuse a material to generate cards again, or to
+  build an exam from it.
+- **Prüfungen & Übungen** — generate mock exams / exercises from one or more
+  materials: choose type (Prüfung/Übung), question types (MC / Kurzantwort /
+  Ausführlich), difficulty, count and an optional focus.
+- **Korrektur & Nachreichung** — answer an exam, submit it, and the LLM grades
+  every question with per-question feedback and a total score. Edit your
+  answers, add a note, and re-submit for a re-grade.
 
 ## Stack
 - **Backend**: FastAPI + SQLAlchemy + SQLite, PyMuPDF (parse + figure crop),
-  FSRS scheduler, Anki .apkg writer.
-- **Frontend**: React + TypeScript + Vite (wizard, card-deck hub, study, import/export).
+  FSRS scheduler, Anki .apkg writer, background job runner (cards + exams).
+- **Frontend**: React + TypeScript + Vite (wizard, card-deck hub, materials
+  library, exam wizard, take/grade exam, study, import/export).
 - **LLM**: any OpenAI-compatible endpoint (llama.cpp / vLLM / Ollama).
 
 ## Run locally
@@ -52,8 +70,17 @@ Or use `truenas.yaml` with the GitHub-Actions-built image
 > `KARTOTHEK_DATA` is still accepted as a fallback for existing deployments.
 
 ## API
-`/api/health`, `/api/courses`, `/api/decks`, `/api/jobs`, `/api/cards`,
+Cards: `/api/health`, `/api/courses`, `/api/decks`, `/api/jobs`, `/api/cards`,
 `/api/study/*` (due/review), `/api/decks/{id}/export?format=apkg|csv`.
+
+Materials: `/api/materials` (list), `/api/materials/{doc_id}/assign`,
+`/api/materials/{doc_id}` (delete), `/api/documents/{doc_id}`.
+
+Exams: `/api/exams/generate`, `/api/exams`, `/api/exams/{id}`,
+`/api/exams/{id}/attempts` (submit/list), `/api/exams/{id}/attempts/{aid}`
+(read), `/api/exams/{id}/attempts/{aid}/resubmit` (re-grade),
+`/api/exam-jobs/{job_id}` (poll), `/api/exam-jobs/{job_id}/retry`.
+
 Swagger at `/docs`.
 
 ## Layout detection

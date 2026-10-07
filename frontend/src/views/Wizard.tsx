@@ -4,6 +4,7 @@ import { api, Analysis, DocumentInfo, Job } from "../api";
 interface Props {
   onDone: (deckId: string) => void;
   onRefresh: () => void;
+  initialDocId?: string | null; // reuse an already-uploaded material
 }
 
 type Step = "upload" | "analyze" | "config" | "running" | "done" | "error";
@@ -18,7 +19,7 @@ const STAGE_LABELS: Record<string, string> = {
   finished: "Fertig",
 };
 
-export default function Wizard({ onDone, onRefresh }: Props) {
+export default function Wizard({ onDone, onRefresh, initialDocId }: Props) {
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [doc, setDoc] = useState<DocumentInfo | null>(null);
@@ -45,6 +46,42 @@ export default function Wizard({ onDone, onRefresh }: Props) {
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
   }, []);
+
+  // Reuse an already-uploaded material: skip the upload step, analyze directly.
+  useEffect(() => {
+    if (!initialDocId) return;
+    let cancelled = false;
+    (async () => {
+      setBusy(true);
+      setError("");
+      try {
+        const d = await api.getDocument(initialDocId);
+        if (cancelled) return;
+        setDoc(d);
+        setStep("analyze");
+        const a = await api.analyzeDocument(d.id);
+        if (cancelled) return;
+        setAnalysis(a.analysis);
+        setDeckName(a.analysis.course_title || d.filename.replace(/\.pdf$/i, ""));
+        setCardCount(a.analysis.suggested_card_count);
+        const t: Record<string, number> = {};
+        for (const topic of a.analysis.topics) t[topic.name] = topic.card_suggestion;
+        setTopics(t);
+        setStep("config");
+      } catch (e) {
+        if (!cancelled) {
+          setError(String(e));
+          setStep("error");
+        }
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDocId]);
 
   const pickFile = (f: File | null) => {
     if (!f) return;

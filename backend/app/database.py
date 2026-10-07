@@ -6,6 +6,7 @@ robust against a crash mid-write.
 """
 from __future__ import annotations
 
+import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -14,6 +15,8 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from .config import settings
+
+log = logging.getLogger("studydeck.db")
 
 
 class Base(DeclarativeBase):
@@ -70,6 +73,29 @@ def init_db() -> None:
     from . import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _migrate_columns()
+
+
+def _migrate_columns() -> None:
+    """Add columns that create_all() can't add to pre-existing tables.
+
+    SQLite's create_all only creates missing tables — it never ALTERs an
+    existing one to add a column. We add new columns here, guarded by a
+    pragma check so the migration is idempotent and cheap.
+    """
+    additions = {
+        "documents": [("course_id", "VARCHAR(32) REFERENCES courses(id) ON DELETE SET NULL")],
+    }
+    with engine.begin() as conn:
+        for table, cols in additions.items():
+            rows = conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
+            existing = {r[1] for r in rows}
+            if not existing:
+                continue  # table doesn't exist yet (create_all made it)
+            for name, decl in cols:
+                if name not in existing:
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+                    log.info("migrated: added %s.%s", table, name)
 
 
 @contextmanager

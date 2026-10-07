@@ -357,6 +357,39 @@ h3 { font-size: 15px; margin: 0 0 8px; }
   .review-card .actions button { flex: 1; }
 }
 
+/* ===================== Exams / Prüfungen ===================== */
+.question { }
+.question .question-text {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+}
+.question textarea { width: 100%; }
+
+.grading {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+}
+.grading.good { border-color: rgba(56, 211, 159, 0.5); }
+.grading.bad { border-color: rgba(239, 68, 68, 0.4); }
+.grading p { margin: 0; }
+
+.result-summary .score {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--accent2);
+}
+.result-summary .score .muted { font-size: 15px; font-weight: 500; }
+
+@media (max-width: 760px) {
+  .question .question-text { font-size: 15px; }
+  .result-summary .score { font-size: 24px; }
+}
+
 @media (max-width: 380px) {
   .rating-bar { grid-template-columns: 1fr 1fr; }
   .navitem { font-size: 13px; padding: 7px 8px; }
