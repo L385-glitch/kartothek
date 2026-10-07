@@ -1,29 +1,27 @@
 import { useEffect, useState } from "react";
 import { api, Deck, Course } from "./api";
-import Hub from "./views/Hub";
-import Wizard from "./views/Wizard";
+import Materials from "./views/Materials";
+import Learning from "./views/Learning";
+import CreateNew from "./views/CreateNew";
 import Review from "./views/Review";
 import Study from "./views/Study";
-import NewCards from "./views/NewCards";
-import Exams from "./views/Exams";
-import ExamWizard from "./views/ExamWizard";
 import TakeExam from "./views/TakeExam";
 
+type Tab = "materials" | "learning" | "create";
+
 type View =
-  | { name: "hub" }
-  | { name: "newcards" }
-  | { name: "wizard"; docId?: string | null }
-  | { name: "exams" }
-  | { name: "examwizard" }
-  | { name: "takeexam"; examId: string }
+  | { name: "tab"; tab: Tab }
   | { name: "review"; deckId: string }
-  | { name: "study" };
+  | { name: "study" }
+  | { name: "takeexam"; examId: string };
 
 export default function App() {
-  const [view, setView] = useState<View>({ name: "hub" });
+  const [view, setView] = useState<View>({ name: "tab", tab: "materials" });
   const [decks, setDecks] = useState<Deck[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [dueTotal, setDueTotal] = useState(0);
+  // When set, the Create tab opens the card flow pre-focused on this material.
+  const [createCardsDocId, setCreateCardsDocId] = useState<string | null>(null);
 
   const refresh = async () => {
     try {
@@ -46,13 +44,25 @@ export default function App() {
     return () => clearInterval(t);
   }, []);
 
-  const go = (v: View) => {
-    setView(v);
+  const goTab = (tab: Tab) => {
+    setCreateCardsDocId(null);
+    setView({ name: "tab", tab });
     refresh();
   };
 
-  const navActive = (names: string[]) =>
-    names.includes(view.name) ? "active" : "";
+  const goCreateCards = (docId: string) => {
+    setCreateCardsDocId(docId);
+    setView({ name: "tab", tab: "create" });
+  };
+
+  const activeTab =
+    view.name === "tab"
+      ? view.tab
+      : view.name === "takeexam"
+      ? "learning"
+      : "learning";
+
+  const navActive = (tab: Tab) => (activeTab === tab ? "active" : "");
 
   return (
     <div className="layout">
@@ -61,86 +71,76 @@ export default function App() {
           Study<span>deck</span>
         </div>
         <button
-          className={`navitem ${navActive(["hub"])}`}
-          onClick={() => go({ name: "hub" })}
+          className={`navitem ${navActive("materials")}`}
+          onClick={() => goTab("materials")}
         >
-          <span>📚</span>
-          <span className="label">Card-Decks</span>
+          <span>📄</span>
+          <span className="label">Materialien</span>
         </button>
         <button
-          className={`navitem ${navActive(["newcards", "wizard"])}`}
-          onClick={() => go({ name: "newcards" })}
-        >
-          <span>✨</span>
-          <span className="label">Neue Karten</span>
-        </button>
-        <button
-          className={`navitem ${navActive(["exams", "examwizard", "takeexam"])}`}
-          onClick={() => go({ name: "exams" })}
-        >
-          <span>📝</span>
-          <span className="label">Prüfungen</span>
-        </button>
-        <button
-          className={`navitem ${navActive(["study"])}`}
-          onClick={() => go({ name: "study" })}
+          className={`navitem ${navActive("learning")}`}
+          onClick={() => goTab("learning")}
         >
           <span>🎯</span>
           <span className="label">Lernen</span>
+        </button>
+        <button
+          className={`navitem ${navActive("create")}`}
+          onClick={() => goTab("create")}
+        >
+          <span>✨</span>
+          <span className="label">Neues erstellen</span>
+        </button>
+        <button
+          className={`navitem ${view.name === "study" ? "active" : ""}`}
+          onClick={() => setView({ name: "study" })}
+        >
+          <span>📖</span>
+          <span className="label">Lernsession</span>
           {dueTotal > 0 && <span className="badge">{dueTotal}</span>}
         </button>
       </aside>
       <main className="main">
-        {view.name === "hub" && (
-          <Hub
+        {view.name === "tab" && view.tab === "materials" && (
+          <Materials
+            courses={courses}
+            onNewCards={goCreateCards}
+            onNewExam={() => goTab("create")}
+            onRefresh={refresh}
+          />
+        )}
+        {view.name === "tab" && view.tab === "learning" && (
+          <Learning
+            courses={courses}
             decks={decks}
-            courses={courses}
-            onReview={(deckId) => go({ name: "review", deckId })}
-            onStudy={() => go({ name: "study" })}
-            onNew={() => go({ name: "newcards" })}
+            onReview={(deckId) => setView({ name: "review", deckId })}
+            onStudy={() => setView({ name: "study" })}
+            onTakeExam={(examId) => setView({ name: "takeexam", examId })}
+            onNew={() => goTab("create")}
             onRefresh={refresh}
           />
         )}
-        {view.name === "newcards" && (
-          <NewCards
+        {view.name === "tab" && view.tab === "create" && (
+          <CreateNew
+            key={createCardsDocId ?? "blank"}
             courses={courses}
-            onNewCards={() => go({ name: "wizard", docId: null })}
-            onReuse={(docId) => go({ name: "wizard", docId })}
-            onNewExam={() => go({ name: "examwizard" })}
-          />
-        )}
-        {view.name === "wizard" && (
-          <Wizard
-            key={view.docId ?? "new"}
-            initialDocId={view.docId ?? null}
-            onDone={(deckId) => go({ name: "review", deckId })}
+            initialCardDocId={createCardsDocId}
+            onDoneDeck={(deckId) => setView({ name: "review", deckId })}
+            onDoneExam={(examId) => setView({ name: "takeexam", examId })}
             onRefresh={refresh}
-          />
-        )}
-        {view.name === "exams" && (
-          <Exams
-            courses={courses}
-            onTake={(examId) => go({ name: "takeexam", examId })}
-            onNewExam={() => go({ name: "examwizard" })}
-          />
-        )}
-        {view.name === "examwizard" && (
-          <ExamWizard
-            courses={courses}
-            onDone={(examId) => go({ name: "takeexam", examId })}
-            onRefresh={refresh}
-          />
-        )}
-        {view.name === "takeexam" && (
-          <TakeExam
-            examId={view.examId}
-            onBack={() => go({ name: "exams" })}
           />
         )}
         {view.name === "review" && (
-          <Review deckId={view.deckId} onDone={() => go({ name: "hub" })} onRefresh={refresh} />
+          <Review
+            deckId={view.deckId}
+            onDone={() => goTab("learning")}
+            onRefresh={refresh}
+          />
         )}
         {view.name === "study" && <Study onRefresh={refresh} />}
+        {view.name === "takeexam" && (
+          <TakeExam examId={view.examId} onBack={() => goTab("learning")} />
+        )}
       </main>
     </div>
   );

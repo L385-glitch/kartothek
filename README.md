@@ -10,13 +10,23 @@ course) so you can reuse them, and you can generate **exercises & mock exams**
 from them — then submit your answers and get them **corrected & graded** by the
 LLM, with the option to re-upload edited answers for a re-grade.
 
+The UI is organised in three tabs:
+- **Materialien** — upload lecture PDFs, assign them to a course, keep them as
+  a reusable library.
+- **Lernen** — everything you've generated (card decks + exams), grouped by
+  course, ready to review, study, or take.
+- **Neues erstellen** — pick your materials, then choose what to build from
+  them (cards or an exam/exercise).
+
 Single container, one port. Built for a TrueNAS SCALE homelab.
 
 ## Features
-- **Card-Decks** — generate, review (FSRS), study, export to Anki/CSV/JSON.
-- **Neue Karten (materials library)** — every imported PDF is kept, grouped by
-  course (or "Unzugeordnet"). Reuse a material to generate cards again, or to
-  build an exam from it.
+- **Materialien** — upload PDFs, assign to a course (or leave unassigned),
+  keep them as a reusable library.
+- **Lernen** — all generated card decks and exams, grouped by course, with
+  review (FSRS), study session, Anki/CSV export, and exam-taking.
+- **Neues erstellen** — a single entry point for all generation: pick
+  material(s), then the job (Karten or Prüfung/Übung).
 - **Prüfungen & Übungen** — generate mock exams / exercises from one or more
   materials: choose type (Prüfung/Übung), question types (MC / Kurzantwort /
   Ausführlich), difficulty, count and an optional focus.
@@ -27,8 +37,9 @@ Single container, one port. Built for a TrueNAS SCALE homelab.
 ## Stack
 - **Backend**: FastAPI + SQLAlchemy + SQLite, PyMuPDF (parse + figure crop),
   FSRS scheduler, Anki .apkg writer, background job runner (cards + exams).
-- **Frontend**: React + TypeScript + Vite (wizard, card-deck hub, materials
-  library, exam wizard, take/grade exam, study, import/export).
+- **Frontend**: React + TypeScript + Vite (3-tab UI — materials library,
+  learning overview, create-new picker, card review, exam take/grade, study,
+  import/export).
 - **LLM**: any OpenAI-compatible endpoint (llama.cpp / vLLM / Ollama).
 
 ## Run locally

@@ -150,9 +150,7 @@ export default function TakeExam({ examId, onBack }: Props) {
   return (
     <div className="stagger">
       <div className="row spread mb">
-        <h1 style={{ margin: 0 }}>
-          {exam?.kind === "exam" ? "Prüfung" : "Übung"}: {exam?.name}
-        </h1>
+        <h1 style={{ margin: 0 }}>{exam?.name}</h1>
         <button className="small" onClick={onBack}>← Zurück</button>
       </div>
 
